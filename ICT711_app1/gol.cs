@@ -4,19 +4,27 @@
  * Date:    June 29, 2019
  * Purpose: This program is designed to play the Game of Life simulation.
  *          
+ *          BuildLifeMatrix - Load time operations to build a 30 x 30 matrix of cells
+ *                              matrix size, cell size and position within the form are customizable
+ *          ResetMatrix     - Reset the matrix to prepare for a file load or manual setting
+ *          CopyLife_Matrix - Copy the current generation to a save array before calculating
+ *          Matrix_Click    - Click on a cell to turn it on or off
+ *          ReadFileAndLoadMatrix - open the file, read the input, populate the array and display the array
+ *                          - called by the file load button
  *          
+ *          The application allows for 1-9 generations when the calculate button is pushed and does error checking on the input
+ *          There is a status bar that is displayed at the bottom for various actions such as file open/save and click
+ *          
+ *          The file input, safe and parsing routines are based on the examples used in class
+ *          
+ *          This solution is too reliant on global variables and could be optimized
  *          
  *  **********************************/
 
 using System;
 using System.IO; //file handler - not part of the default usings
-using System.Collections.Generic;
 using System.ComponentModel;
-using System.Data;
 using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace ICT711_app1
@@ -66,19 +74,19 @@ namespace ICT711_app1
         private void BuildLifeMatrix()
         {
             int xpos;                       // x axis or column
-            int ypos = life_cell_startxy;   // y axis or column
+            int ypos = life_cell_startxy;   // y axis or row
             string lbl_name = "X";          // the label name - initialize as X for error checking
             MessageBox.Show("Standby while the matrix is being created " +
                 "\n\nThis will take a minute." +
-                "\n\nPress Return to Start...");
-            for (int y = 0; y <= (life_matrix_size + 1); y++) // Y axis for loop
+                "\n\nPress Ok to Start...");
+            for (int y = 0; y <= (life_matrix_size + 1); y++) // Y axis for row loop
             {
                 xpos = life_cell_startxy; // set the X start to the beginning of the line
-                for (int x = 0; x <= (life_matrix_size + 1); x++) // X axis for loop
+                for (int x = 0; x <= (life_matrix_size + 1); x++) // X axis for column loop
                 {
                     lbl_name = "G" + y.ToString("D2") + x.ToString("D2");   // G + row + column
                     Label namelabel = new Label();
-                    namelabel.Location = new Point(ypos, xpos);             //position the cell on the form
+                    namelabel.Location = new Point(xpos, ypos);             //position the cell on the form
                     namelabel.Size = new Size(life_cell_size, life_cell_size); //set the size
                     namelabel.Name = lbl_name;                              //name the label according to location
                     namelabel.Tag = y * 100 + x;                            // set the tag to the same values
@@ -132,7 +140,7 @@ namespace ICT711_app1
             show_generations = 1;    // First generation
             txt_gen_calc.Text = calc_generations.ToString();
             txt_gen_current.Text = show_generations.ToString(); //update the form data
-            txt_statusbar.Text = "Load a data file or select fields"; // Clear the status bar too.
+            txt_statusbar.Text = "Load a data file or select fields"; // Reset the status bar too.
         }
 
         // Copy the current life_matrix to last_matrix
@@ -158,21 +166,21 @@ namespace ICT711_app1
         private void matrix_Click(object sender, EventArgs e)
         {
             Label matrix_cell = (Label)sender;
-            int row = (int)matrix_cell.Tag / 100;    // row value
-            int col = (int)matrix_cell.Tag % 100;    // column value
+            int col = (int)matrix_cell.Tag / 100;    // row value
+            int row = (int)matrix_cell.Tag % 100;    // column value
 
             if (matrix_cell.BackColor == Color.Aqua) // this is a border field so do nothing
                 return;
             else if (matrix_cell.BackColor == Color.Lime) // could also check life_matrix boolean array
             {
                 matrix_cell.BackColor = Color.White; // display a white background
-                life_matrix[row, col] = false;       // set the cell value to dead
+                life_matrix[col, row] = false;       // set the cell value to dead
                 txt_statusbar.Text = "Cell " + matrix_cell.Name + " is Dead";
             }
             else
             {
                 matrix_cell.BackColor = Color.Lime; // display a green background
-                life_matrix[row, col] = true;       // set the cell value to alive
+                life_matrix[col, row] = true;       // set the cell value to alive
                 txt_statusbar.Text = "Cell " + matrix_cell.Name + " is Alive";
             }
         }
@@ -217,18 +225,17 @@ namespace ICT711_app1
                         foreach (string num in numbers)
                         {
                             // convert the token to an int - if fails, give up
-                            MessageBox.Show("Number " + num);
                             if (!int.TryParse(num, out value))
                             {
                                 MessageBox.Show("Value in file contains non numeric data.");
                                 return false;
                             }
 
-                            num_found++;
+                            num_found++;                // increment the counter of numbers found in this record
                             if (num_found == 1)
-                                row_index = value;
+                                row_index = value+1;    // add 1 to the value from the input file because our matrix starts at 1
                             if (num_found == 2)
-                                col_index = value;
+                                col_index = value+1;    // same for the column - position 0 is a border cell
 
                         }
                         // OK we are done reading the record
@@ -285,7 +292,6 @@ namespace ICT711_app1
             else
             {
                 txt_statusbar.Text = dialog.FileName;                   // display the filename in the status field
-                MessageBox.Show("file selected");
             }
             // OK got this far so we have a file selected
             // try to open the file. If fails then tell use via a MessageBox() and give up
@@ -309,24 +315,46 @@ namespace ICT711_app1
             file.Close();   // We are done reading input, close the file before we leave.
         }
 
+
+        // Save results button. Provide a file save dialog and then call a routine
+        // to write out the results of the array
         private void btn_save_Click(object sender, EventArgs e)
         {
             // Method to load a GOL file and build out the matrix
             // Form is created at load time, just populate the array and display
-
-//            ResetMatrix(); // clear the arrays so we can start a new model
+            StreamWriter file;      // reference to the StreamWriter() object used to connect to the ouptut file
+            int row, col;           // for loop counters as we process the matrix
 
             txt_statusbar.Text = "";  // clear the status bar before we pick a file
-            OpenFileDialog dialog = new OpenFileDialog();    // reference to the open file dialog
+            SaveFileDialog dialog = new SaveFileDialog();    // reference to the Save file dialog
             dialog.Title = "Save Data File";
-            dialog.Filter = "All Files|*.*|Gol Files (*.gol)|*.gol";
-            dialog.FilterIndex = 2;
+            dialog.Filter = "Gol Files (*.gol)|*.gol"; //suggest what extension is being used (display only!)
+            dialog.FilterIndex = 1;
+            dialog.DefaultExt = ".gol";                // this is what really sets the default extension
 
             if (dialog.ShowDialog() == DialogResult.OK)
             {
                 txt_statusbar.Text = dialog.FileName; // display the filename in the status field
             }
 
+            // OK if we have a valid file then write out the array results
+            try
+            {
+                file = new StreamWriter(txt_statusbar.Text);
+                for (row=1; row <= life_matrix_size; row++)         // loop thru all the rows
+                {
+                    for (col=1; col <= life_matrix_size; col++)     // loop thru all the columns
+                    {
+                        if (life_matrix[col,row])                   // found a life cell write the output
+                            file.WriteLine((col-1).ToString() + " " + (row-1).ToString()); // subtract 1 from the values because of border
+                    }
+                }
+                file.Close();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"File not created. {ex.Message}");
+            }
         }
 
         private void btn_calc_Click(object sender, EventArgs e)
@@ -361,8 +389,6 @@ namespace ICT711_app1
                             {
                                 if (last_matrix[(x + nx), (y + ny)])    // this neighbor cell is alive
                                 {                                       // check the last matrix as life matrix is changing
-                                    // MessageBox.Show("Alive XY" + x.ToString("D2") + y.ToString("D2"));
-                                    // MessageBox.Show("Nabor XY" + nx.ToString("D2") + ny.ToString("D2"));
                                     if (nx != 0)                        // not in my column, it's not me
                                         alive_count++;
                                     else
@@ -373,9 +399,6 @@ namespace ICT711_app1
                                 }
                             }
                         }
-
-//                        MessageBox.Show(" Cell G" + x.ToString("D2") + y.ToString("D2") + 
-//                            " Alive " + alive_count.ToString("D2"));
 
                         Control matrix_cell = Controls["G" + x.ToString("D2") + y.ToString("D2")]; //access the control by it's name
 
@@ -461,7 +484,6 @@ namespace ICT711_app1
             // Check that something was entered, don't check for numbers yet
             if (!TextNotEmpty(txt_gen_calc.Text))
             {
-                //MessageBox.Show("In Week_validating text not empty");
                 valid_generations = false; // flag that validation has failed
             }
             else

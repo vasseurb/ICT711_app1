@@ -116,7 +116,7 @@
             // 
             // txt_statusbar
             // 
-            this.txt_statusbar.Location = new System.Drawing.Point(12, 591);
+            this.txt_statusbar.Location = new System.Drawing.Point(12, 641);
             this.txt_statusbar.Name = "txt_statusbar";
             this.txt_statusbar.ReadOnly = true;
             this.txt_statusbar.Size = new System.Drawing.Size(700, 20);
@@ -140,7 +140,7 @@
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.CancelButton = this.btn_exit;
-            this.ClientSize = new System.Drawing.Size(792, 625);
+            this.ClientSize = new System.Drawing.Size(792, 669);
             this.Controls.Add(this.btn_exit);
             this.Controls.Add(this.txt_statusbar);
             this.Controls.Add(this.lbl_gen_cur);
